@@ -7,17 +7,23 @@
 #include "neopixel.h"
 #include "linear_conversion.h"
 #include "IoTClassroom_CNM.h"
-#include "DFRobotDFPlayerMini.h"
+//#include "DFRobotDFPlayerMini.h"
 #include "Encoder.h"
 
 // MP3 player constants, variable, objects
-const int NEXTBUTTONPIN = A1;
+/* const int NEXTBUTTONPIN = A1;
 const int BACKBUTTONPIN = A2;
 const int PLAYBUTTONPIN = D15;
 int playlistQuiet[10];
 int playlistLoud[10];
 int playlistIndexQuiet; // playlist indexes to cycle through with a for loop.
 int playlistIndexLoud;
+int currentTrack;
+unsigned int nextTrack;
+unsigned int previousTrack;
+bool toggleStartStop;
+DFRobotDFPlayerMini mp3Player; */
+
 float currentTrackTime; 
 float totalTrackTime; // If current track time == total track time, go to the next track.
 
@@ -30,7 +36,10 @@ int color, previousColor; // match these to the mapped temperature.
 const int ENCODERPINA = D9;
 const int ENCODERPINB = D8;
 const int ENCODERSWITCHPIN = D19;
-float encoderInput;
+const int ENCODERSWITCHRED = D17;
+const int ENCODERSWITCHGREEN = D18;
+const int ENCODERSWITCHBLUE = D14;
+int encoderInput;
 float previousEncoderInput;
 Encoder encoder(ENCODERPINA, ENCODERPINB);
 
@@ -58,14 +67,14 @@ Adafruit_NeoPixel pixel(pixelCount, SPI1, WS2812B);
 
 
 // Linear conversion variables
-// HueBulb
+// HueBulb brightness
 float x1EncoderLow = 0.0;
-float y1HueBulbLow = 0.0;
+float y1BrightnessLow = 0.0;
 float x2EncoderHigh = 96.0;
-float y2HueBulbHigh = 255.0;
+float y2BrightnessHigh = 255.0;
 float slopeHueBulb;
 float yInterceptHueBulb;
-float mappedEncoderToHueBulb;
+float mappedEncoderToBrightness;
 float previousInputHueBulb;
 
 // volume
@@ -76,6 +85,14 @@ float yInterceptVolume;
 float mappedEncoderToVolume;
 float previousInputVolume;
 
+// pixels
+float y1PixelLow = 0.0;
+float y2PixelHigh = 12.0;
+float slopePixel;
+float yInterceptPixel;
+float mappedEncoderToPixel;
+float previousInputPixel;
+
 // Timer variables and objects
 int currentTime;
 int previousTime;
@@ -83,19 +100,20 @@ int previousTime;
 
 // Button variables and objects
 const int BUTTONPINPOWERALL = D3;
-const int BUTTONPINBULBS = D6;
-const int BUTTONPINWEMOS = D7;
+const int BUTTONPINPREVIOUSSONG = A1;
+const int BUTTONPINNEXTSONG = A2;
 bool buttonPowerToggle;
 bool previousPowerToggle;
 bool previousBulbInput = 0;
+bool encoderSwitchToggle;
+bool previousEncoderSwitchToggle;
 Button buttonPowerAll(BUTTONPINPOWERALL);
-Button buttonPowerBulb(BUTTONPINBULBS);
-Button buttonPowerWemo(BUTTONPINWEMOS);
-Button encoderButton(ENCODERSWITCHPIN);
-Button mp3NextButton(NEXTBUTTONPIN);
-Button mp3BackButton(BACKBUTTONPIN);
+Button encoderButton(ENCODERSWITCHPIN); // used to switch playlists.
+Button mp3NextButton(BUTTONPINNEXTSONG);
+Button mp3BackButton(BUTTONPINPREVIOUSSONG);
 
 // Function Prototypes
+void checkEncoderPositionZero();
 void pixelFill(int startPixel, int endPixel, int red, int green, int blue);
 float celToFar(float inputTempCel);
 
