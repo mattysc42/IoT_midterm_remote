@@ -17,17 +17,15 @@ const int MP3RXPIN = D5;
 const int BUTTONPINSTARTSTOP = D3;
 const int BUTTONPINPREVIOUSSONG = A1;
 const int BUTTONPINNEXTSONG = A2;
-unsigned int currentTrack = 1;
 bool toggleStartStop;
 bool togglePlaylist;
+unsigned int currentFolder;
+unsigned int currentTrack;
 DFRobotDFPlayerMini mp3Player;
 
 Button buttonStartStop(BUTTONPINSTARTSTOP);
 Button mp3NextButton(BUTTONPINNEXTSONG);
 Button mp3BackButton(BUTTONPINPREVIOUSSONG);
-
-float currentTrackTime; 
-float totalTrackTime; // If current track time == total track time, go to the next track.
 
 // Hue Bulb and Wemo constants, variable, objects
 const int BULB1 = 1;
@@ -42,7 +40,7 @@ const int ENCODERSWITCHPIN = D19;
 const int ENCODERSWITCHRED = D17;
 const int ENCODERSWITCHGREEN = D18;
 const int ENCODERSWITCHBLUE = D14;
-int encoderInput;
+int encoderInput = 0;
 float previousEncoderInput;
 bool encoderSwitchToggle;
 Encoder encoder(ENCODERPINA, ENCODERPINB);
@@ -76,7 +74,7 @@ float y2BrightnessHigh = 255.0;
 float slopeHueBulb;
 float yInterceptHueBulb;
 float mappedEncoderToBrightness;
-float previousInputHueBulb;
+float previousEncoderToBrightness;
 
 // Linear conversion volume
 float y1VolumeLow = 0.0;

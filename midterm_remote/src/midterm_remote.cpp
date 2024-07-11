@@ -55,8 +55,6 @@ void setup() {
     Serial2.begin(9600);
     mp3Player.begin(Serial2);
     delay(1000);
-    //mp3Player.EQ(DFPLAYER_EQ_NORMAL);
-    //mp3Player.outputDevice(DFPLAYER_DEVICE_SD);
     if (!mp3Player.begin(Serial2)) {  //Use softwareSerial to communicate with mp3.
         Serial.printf("Unable to begin:\n");
         Serial.printf("1.Please recheck the connection!\n");
@@ -64,135 +62,155 @@ void setup() {
         while(true);
     }
     mp3Player.loopFolder(1);
+    mp3Player.volume(10);
+    setHue(BULB1, true, HueBlue, 75, 255);
     Serial.printf("playing quiet playlist.");
 }
 
 void loop() {
     myOLED.clearDisplay();
     encoderInput = encoder.read();
-    
-    // switch playlists, encoder switch LED color, and huebulb color if the encoder switch is clicked.
-    if(encoderButton.isClicked()) {
-        encoderSwitchToggle = !encoderSwitchToggle;
-        if(!encoderSwitchToggle) {
-            mp3Player.loopFolder(1);
-            Serial.printf("playing quiet playlist.");
+    currentTrack = mp3Player.readCurrentFileNumber();
+    currentTime = millis();
+    if ((currentTime - previousTime) > 5) {
+
+        if(mp3NextButton.isClicked()) {
+            if(mp3Player.readCurrentFileNumber() == 10) {
+                if(!encoderSwitchToggle) {
+                    mp3Player.loopFolder(1);
+                }
+                else {
+                    mp3Player.loopFolder(2);
+                }
+            }
+            else{
+                mp3Player.next();
+            }
+        }
+        if(mp3BackButton.isClicked()) {
+            mp3Player.previous();
+        }
+
+        if(encoderSwitchToggle == true) {
+            digitalWrite(ENCODERSWITCHRED, LOW);
+            digitalWrite(ENCODERSWITCHGREEN, HIGH);
+            digitalWrite(ENCODERSWITCHBLUE, HIGH);
         }
         else {
-            mp3Player.loopFolder(2);
-            Serial.printf("playing loud playlist.");
+            digitalWrite(ENCODERSWITCHRED, HIGH);
+            digitalWrite(ENCODERSWITCHGREEN, HIGH);
+            digitalWrite(ENCODERSWITCHBLUE, LOW);
+        }
+
+        if(encoderInput <= 0) {
+            encoderInput = 0;
+            encoder.write(0);
+        }
+        else if(encoderInput >= 96) {
+            encoderInput = 96;
+            encoder.write(96);
+        }
+
+        // light minipixels based on the MBE readings while keeping the values inside the analog output limits.
+        color = tempFar;
+        if((color * 2) >= 254) {
+            color = 127;
+        }
+        if((color * 2) <= 1) {
+            color = 1;
+        }
+        
+
+        // maps volume percentage to encoder.
+        slopeVolume = findSlope(x1EncoderLow, y1VolumeLow, x2EncoderHigh, y2VolumeHigh);
+        yInterceptVolume = findYInstercept(slopeVolume, x1EncoderLow, y1VolumeLow);
+        mappedEncoderToVolume = findLinearConversion(slopeVolume, yInterceptVolume, encoderInput);
+
+        // maps pixelcount to encoder
+        slopePixel = findSlope(x1EncoderLow, y1PixelLow, x2EncoderHigh, y2PixelHigh);
+        yInterceptPixel = findYInstercept(slopePixel, x1EncoderLow, y1PixelLow);
+        mappedEncoderToPixel = findLinearConversion(slopePixel, yInterceptPixel, encoderInput);
+        pixelCount = mappedEncoderToPixel;
+
+        // maps huebulb brightness to encoder
+        slopeHueBulb = findSlope(x1EncoderLow, y1BrightnessLow, x2EncoderHigh, y2BrightnessHigh);
+        yInterceptHueBulb = findYInstercept(slopeHueBulb, x1EncoderLow, y1BrightnessLow);
+        mappedEncoderToBrightness = findLinearConversion(slopeHueBulb, yInterceptHueBulb, encoderInput);
+        pixel.setBrightness(mappedEncoderToBrightness * 0.5);
+        
+        // switch playlists, encoder switch LED color, and huebulb color if the encoder switch is clicked.
+        if(encoderButton.isClicked()) {
+            encoderSwitchToggle = !encoderSwitchToggle;
+            if(!encoderSwitchToggle) {
+                setHue(BULB1, true, HueBlue, mappedEncoderToBrightness, 255);
+                mp3Player.loopFolder(1);
+                Serial.printf("playing quiet playlist.");
+                mp3Player.volume(mappedEncoderToVolume);
+            }
+            else {
+                setHue(BULB1, true, HueRed, mappedEncoderToBrightness, 255);
+                mp3Player.loopFolder(2);
+                Serial.printf("playing loud playlist.");
+                mp3Player.volume(mappedEncoderToVolume);
+            } 
         } 
-    } 
 
-    if(encoderSwitchToggle == true) {
-        digitalWrite(ENCODERSWITCHRED, LOW);
-        digitalWrite(ENCODERSWITCHGREEN, HIGH);
-        digitalWrite(ENCODERSWITCHBLUE, HIGH);
-    }
-    else {
-        digitalWrite(ENCODERSWITCHRED, HIGH);
-        digitalWrite(ENCODERSWITCHGREEN, HIGH);
-        digitalWrite(ENCODERSWITCHBLUE, LOW);
-    }
-
-    if(encoderInput <= 0) {
-        encoderInput = 0;
-        encoder.write(0);
-    }
-    else if(encoderInput >= 96) {
-        encoderInput = 96;
-        encoder.write(96);
-    }
-
-    // light minipixels based on the MBE readings while keeping the values inside the analog output limits.
-    color = tempFar;
-    if((color * 2) >= 254) {
-        color = 127;
-    }
-    if((color * 2) <= 1) {
-        color = 1;
-    }
-    
-
-    // maps volume percentage to encoder.
-    slopeVolume = findSlope(x1EncoderLow, y1VolumeLow, x2EncoderHigh, y2VolumeHigh);
-    yInterceptVolume = findYInstercept(slopeVolume, x1EncoderLow, y1VolumeLow);
-    mappedEncoderToVolume = findLinearConversion(slopeVolume, yInterceptVolume, encoderInput);
-
-    // maps pixelcount to encoder
-    slopePixel = findSlope(x1EncoderLow, y1PixelLow, x2EncoderHigh, y2PixelHigh);
-    yInterceptPixel = findYInstercept(slopePixel, x1EncoderLow, y1PixelLow);
-    mappedEncoderToPixel = findLinearConversion(slopePixel, yInterceptPixel, encoderInput);
-    pixelCount = mappedEncoderToPixel;
-
-    // maps huebulb brightness to encoder
-    slopeHueBulb = findSlope(x1EncoderLow, y1BrightnessLow, x2EncoderHigh, y2BrightnessHigh);
-    yInterceptHueBulb = findYInstercept(slopeHueBulb, x1EncoderLow, y1BrightnessLow);
-    mappedEncoderToBrightness = findLinearConversion(slopeHueBulb, yInterceptHueBulb, encoderInput);
-    pixel.setBrightness(mappedEncoderToBrightness * 0.5);
-
-    if(encoderInput == 0) {
-        checkEncoderPositionZero();
-        if (( currentTime - previousTime ) > 500) {
-            setHue(BULB1, false, HueBlue, mappedEncoderToBrightness, 255);
-            mp3Player.volume(0);
-            previousTime = currentTime;
-        }
-    }
-    else {
-        
-        // sets color based on temperature. Pure blue at 32 degrees farenheight, pure red at 100 degrees farenheight.
-        pixelFill(0, pixelCount, (color * 2) - 64, 0, 200 - (color * 2));
-        pixel.show();
-
-        if(tempFar < previousTempFar) {
-            pixel.clear();
-            pixel.show();
+        if(encoderInput != previousEncoderInput) {
+            if(encoderSwitchToggle == 0) {
+                setHue(BULB1, true, HueBlue, mappedEncoderToBrightness, 255);
+                mp3Player.volume(mappedEncoderToVolume);
+            }
+            else {
+                setHue(BULB1, true, HueRed, mappedEncoderToBrightness, 255);
+                mp3Player.volume(mappedEncoderToVolume);
+            } 
+            // sets color based on temperature. Pure blue at 32 degrees farenheight, pure red at 100 degrees farenheight.
             pixelFill(0, pixelCount, (color * 2) - 64, 0, 200 - (color * 2));
-        }
-
-        // turns pixels off if the current pixelcount is less than the previous pixelcount
-        if(pixelCount < previousInputPixel) {
-            pixel.clear();
             pixel.show();
-            pixelFill(0, pixelCount, (color * 2) - 64, 0, 200 - (color * 2));
-        }
-        
-        
 
+            if(tempFar < previousTempFar) {
+                pixel.clear();
+                pixel.show();
+                pixelFill(0, pixelCount, (color * 2) - 64, 0, 200 - (color * 2));
+            }
+
+            // turns pixels off if the current pixelcount is less than the previous pixelcount
+            if(pixelCount < previousInputPixel) {
+                pixel.clear();
+                pixel.show();
+                pixelFill(0, pixelCount, (color * 2) - 64, 0, 200 - (color * 2));
+            }
+        }
+
+        // check encoder input and work from there.
+        if(encoderInput == 0) {
+            checkEncoderPositionZero();
+            if(encoderInput != previousEncoderInput) {
+                setHue(BULB1, false, HueBlue, mappedEncoderToBrightness, 255);
+                // Set volume
+                mp3Player.volume(mappedEncoderToVolume);
+            }
+        }
+
+        // gets temperature and converts it to farenheight.
+        // 
         tempCel = bmeSensor.readTemperature();
         tempFar = celToFar(tempCel);
 
-        if ((millis() - previousTime) > 1000) {
-            previousTime = millis();
-
-            Serial.printf("\nTemp in Fahrenheit is: %0.2f.\n", tempFar);
-
-            // Update the huebulb
-            if(encoderInput > 0) {
-                if(mappedEncoderToVolume != previousInputVolume){
-                    if (encoderSwitchToggle == true) {
-                        setHue(BULB1, true, HueRed, mappedEncoderToBrightness, 255);
-                    }
-                    else {
-                        setHue(BULB1, true, HueBlue, mappedEncoderToBrightness, 255);
-                    }
-                }
-            }
-            // prints data to the OLED display
-            myOLED.setCursor(0, 0);
-            myOLED.printf("---\nTemp: %0.2f F. \n---\n", tempFar);
-            myOLED.display();        
-
-            // MP3 player stuff
-            // Set volume
-            mp3Player.volume(mappedEncoderToVolume);
-        }
+        // prints data to the OLED display at 1 second intervals
+        myOLED.setCursor(0, 0);
+        myOLED.printf("---\nTemp: %0.2f F. \n---\n", tempFar);
+        myOLED.display(); 
+        //
+        Serial.printf("\nTemp in Fahrenheit is: %0.2f.\n", tempFar);
+        
+        // match previous inputs to current inputs.
+        previousTempFar = tempFar;
+        previousInputPixel = pixelCount;
+        previousEncoderInput = encoderInput;
+        previousEncoderToBrightness = mappedEncoderToBrightness;
+        previousTime = currentTime;
     }
-    // match previous inputs to current inputs.
-    previousTempFar = tempFar;
-    previousInputPixel = pixelCount;
-    previousInputVolume = mappedEncoderToVolume;
 }
 
 // Functions
