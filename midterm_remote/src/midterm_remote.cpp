@@ -47,28 +47,78 @@ void setup() {
         Serial.printf("BME280 at address %02X failed to start", sensorAddress);
     }
 
-    // Huebulb stuff
+    // MP3 Player stuff.
+    pinMode(MP3BUSYPIN, INPUT);
+    pinMode(MP3RXPIN, INPUT);
+    pinMode(MP3TXPIN, OUTPUT);
+
+    Serial.printf("DFRobot DFPlayer Mini Demo\n");
+    Serial.printf("Initializing DFPlayer ... (May take 3~5 seconds)\n");
+    Serial2.begin(9600);
+    mp3Player.begin(Serial2);
+    mp3Player.setTimeOut(500);
+    mp3Player.EQ(DFPLAYER_EQ_NORMAL);
+    mp3Player.outputDevice(DFPLAYER_DEVICE_SD);
+    if(mp3Player.available()) {
+        Serial.printf("DFPlayer Mini online.\n");
+    }
+    mp3Player.volume(10);  //Set volume value. From 0 to 30
+    mp3Player.outputSetting(true, 15); //output setting, enable the output and set the gain to 15
+    mp3Player.loopFolder(1);
+    
+    Serial.println(mp3Player.readState()); //read mp3 state        
+    Serial.println(mp3Player.readVolume()); //read current volume
+    Serial.println(mp3Player.readEQ()); //read EQ setting
+    Serial.println(mp3Player.readFileCounts()); //read all file counts in SD card
+    Serial.println(mp3Player.readCurrentFileNumber()); //read current play file number
+    Serial.println(mp3Player.readFileCountsInFolder(1)); //read file counts in folder SD:/01
+    
 }
 
 void loop() {
-    currentTime = millis();
     myOLED.clearDisplay();
     encoderInput = encoder.read();
 
+    /* if(buttonStartStop.isClicked()) {
+        toggleStartStop = !toggleStartStop;
+        if(toggleStartStop) {
+            mp3Player.play(currentPlaylist[currentTrack]);  //Play the first mp3
+        }
+        else {
+            mp3Player.stop();
+        }
+    } */
     
+    // switch playlists, encoder switch LED color, and huebulb color if the encoder switch is clicked.
     if(encoderButton.isClicked()) {
-        encoderSwitchToggle = !encoderSwitchToggle;
-    }
 
-    if(encoderSwitchToggle == false) {
-        digitalWrite(ENCODERSWITCHRED, HIGH);
-        digitalWrite(ENCODERSWITCHGREEN, LOW);
-        digitalWrite(ENCODERSWITCHBLUE, LOW);
+        encoderSwitchToggle = !encoderSwitchToggle;
+        
+        /* if(togglePlaylist == 0) {
+            for(unsigned int i = 0; i < size_t(mp3Player.readFileCountsInFolder(1)); i++) {
+                for(unsigned int j = 0; j < size_t(mp3Player.readFileCountsInFolder(1)); j++) {
+                    currentPlaylist[i] = mp3Player.
+                }
+            }
+            togglePlaylist = !togglePlaylist;
+        }
+        else {
+            for(unsigned int i = 0; i < size_t(mp3Player.readFileCountsInFolder(1)); i++) {
+                currentPlaylist[i] = playlistLoud[i];
+            }
+            togglePlaylist = !togglePlaylist;
+        } */
+    } 
+
+    if(encoderSwitchToggle == true) {
+        digitalWrite(ENCODERSWITCHRED, LOW);
+        digitalWrite(ENCODERSWITCHGREEN, HIGH);
+        digitalWrite(ENCODERSWITCHBLUE, HIGH);
     }
     else {
-        digitalWrite(ENCODERSWITCHRED, LOW);
-        digitalWrite(ENCODERSWITCHGREEN, LOW);
-        digitalWrite(ENCODERSWITCHBLUE, HIGH);
+        digitalWrite(ENCODERSWITCHRED, HIGH);
+        digitalWrite(ENCODERSWITCHGREEN, HIGH);
+        digitalWrite(ENCODERSWITCHBLUE, LOW);
     }
 
     if(encoderInput <= 0) {
@@ -88,8 +138,6 @@ void loop() {
     if((color * 2) <= 1) {
         color = 1;
     }
-
-    // stabilizes the output by ensuring the encoder input is divisible by 4.
     
 
     // maps volume percentage to encoder.
@@ -111,8 +159,10 @@ void loop() {
 
     if(encoderInput == 0) {
         checkEncoderPositionZero();
-        if (( currentTime - previousTime ) > 1000) {
+        if (( currentTime - previousTime ) > 500) {
             setHue(BULB1, false, HueBlue, mappedEncoderToBrightness, 255);
+            mp3Player.volume(0);
+            previousTime = currentTime;
         }
     }
     else {
@@ -134,11 +184,22 @@ void loop() {
             pixelFill(0, pixelCount, (color * 2) - 64, 0, 200 - (color * 2));
         }
         
-        checkEncoderPositionZero();
+        // Set volume
+        mp3Player.volume(mappedEncoderToVolume);
+        /* if(!encoderSwitchToggle) {
+            mp3Player.loopFolder(1);
+            Serial.printf("playing quiet playlist.");
+        }
+        else {
+            mp3Player.loopFolder(2);
+            Serial.printf("playing loud playlist.");
+        } */
+
         tempCel = bmeSensor.readTemperature();
         tempFar = celToFar(tempCel);
 
-        if (( currentTime - previousTime ) > 1000) {
+        if (( millis() - previousTime ) > 1000) {
+            previousTime = millis();
 
             Serial.printf("\nTemp in Fahrenheit is: %0.2f.\n", tempFar);
 
@@ -151,19 +212,21 @@ void loop() {
                     setHue(BULB1, true, HueBlue, mappedEncoderToBrightness, 255);
                 }
             }
-            
-            
 
             // prints data to the OLED display
             myOLED.setCursor(0, 0);
             myOLED.printf("---\nTemp: %0.2f F. \n---\n", tempFar);
             myOLED.display();        
             previousTime = currentTime;
+
+            // MP3 player stuff
+            
         }
     }
     // match previous inputs to current inputs.
     previousTempFar = tempFar;
     previousInputPixel = pixelCount;
+    previousInputVolume = mappedEncoderToVolume;
 }
 
 // Functions
