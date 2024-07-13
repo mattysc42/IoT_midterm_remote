@@ -16,8 +16,6 @@ void setup() {
     /* WiFi.on();
     WiFi.clearCredentials();
     WiFi.setCredentials("IoTNetwork");
-    WiFi.setCredentials("tardis-1", "gallifreynet");
-
     WiFi.connect();
     while(WiFi.connecting()) {
         Serial.printf(".");
@@ -206,6 +204,9 @@ void loop() {
                     mp3Player.pause();
                     toggleStartStop = !toggleStartStop;
                     cycleHueBulbs(HueRed, 255.0);
+                    wemoWrite(MYWEMO, LOW);
+                    wemoWrite(MYWEMO2, LOW);
+                    wemoWrite(MYWEMO3, LOW);
                 }
                 else {
                     if(toggleProximityStart == true) {
