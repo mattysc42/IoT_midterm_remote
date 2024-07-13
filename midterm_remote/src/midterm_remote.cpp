@@ -67,12 +67,14 @@ void setup() {
         Serial.printf("2.Please insert the SD card!\n");
         while(true);
     }
+
+    // startup stuff.
     mp3Player.loopFolder(1);
+    mp3Player.enableLoopAll();
     mp3Player.pause();
     mp3Player.volume(20);
     encoder.write(62);
     encoderInput = 62;
-    
     cycleHueBulbs(HueBlue, 255);
     Serial.printf("playing quiet playlist.");
 }
@@ -90,31 +92,36 @@ void loop() {
     duration = pulseIn(ECHOPIN, HIGH);
     distance = (duration * 0.0343) / 2;
 
+    // Pause the playback and turn everything off if I'm away from my desk for more than 10 seconds. 
     if(distance > 70) {
         if((currentTime - previousTimeSensor) > 10000) {
-        mp3Player.pause();
-        toggleProximityStart = false;
-        digitalWrite(ENCODERSWITCHRED, HIGH);
-        digitalWrite(ENCODERSWITCHGREEN, HIGH);
-        digitalWrite(ENCODERSWITCHBLUE, HIGH);
-        pixel.setBrightness(0);
-        pixel.show();
-        myOLED.clearDisplay();
-        myOLED.setCursor(0, 0);
-        myOLED.display();
-        previousTimeSensor = currentTime;
+            mp3Player.pause();
+            toggleProximityStart = false;
+            wemoToggleState = false;
+            digitalWrite(ENCODERSWITCHRED, HIGH);
+            digitalWrite(ENCODERSWITCHGREEN, HIGH);
+            digitalWrite(ENCODERSWITCHBLUE, HIGH);
+            pixel.setBrightness(0);
+            pixel.show();
+            myOLED.clearDisplay();
+            myOLED.setCursor(0, 0);
+            myOLED.display();
+            cycleHueBulbs(blue, 0);
+            wemoWrite(MYWEMO, LOW);
+            wemoWrite(MYWEMO2, LOW);
+            previousTimeSensor = currentTime;
         }
     }
-
-    // check sensor distance. auto start if sensor is less than 70cm.
+    // Check sensor distance. Auto start if sensor reads less than 70cm.
     else {
-
         myOLED.clearDisplay();
         encoderInput = encoder.read();
 
+        //start a cycle timer to prevent excessive inputs
         if ((currentTime - previousTime) > 50) {
             currentTrack = mp3Player.readCurrentFileNumber(Serial2);
             
+            // change the encoder color depending on the playlist
             if(encoderSwitchToggle == true) {
                 digitalWrite(ENCODERSWITCHRED, HIGH);
                 digitalWrite(ENCODERSWITCHGREEN, LOW);
@@ -131,6 +138,7 @@ void loop() {
                 digitalWrite(ENCODERSWITCHBLUE, HIGH);
             }
 
+            // prevent the encoder input from going out of range
             if(encoderInput <= 0) {
                 encoderInput = 0;
                 encoder.write(0);
@@ -140,9 +148,11 @@ void loop() {
                 encoder.write(96);
             }
 
-            // gets temperature and converts it to farenheight.
+            // get temperature and converts it to farhenheight.
             tempCel = bmeSensor.readTemperature();
             tempFar = celToFar(tempCel);
+
+            // turn on the wemos if temperature goes over 75 degrees farhenheight.
             if(tempFar > 75) {
                 if(wemoToggleState == false) {
                     wemoWrite(MYWEMO, HIGH);
@@ -151,6 +161,7 @@ void loop() {
                 }
             }
             else {
+                // turn the wemos off if temperature goes below 75 degrees farhenheight.
                 if(wemoToggleState == true) {
                     if(tempFar < 75) {
                         wemoWrite(MYWEMO, LOW);
@@ -160,7 +171,7 @@ void loop() {
                 }
             }
 
-            // light minipixels based on the MBE readings while keeping the values inside the analog output limits.
+            // get neopixel colors based on the MBE readings while keeping the values inside the analog output limits.
             color = tempFar;
             if((color * 2) >= 254) {
                 color = 127;
@@ -180,7 +191,7 @@ void loop() {
             mappedEncoderToPixel = findLinearConversion(slopePixel, yInterceptPixel, encoderInput);
             pixelCount = mappedEncoderToPixel;
 
-            // maps huebulb brightness to encoder
+            // maps huebulb brightness to encoder. Due to input lag issues with the huebulbs, this only works for the neopixel brightness currently.
             slopeHueBulb = findSlope(x1EncoderLow, y1BrightnessLow, x2EncoderHigh, y2BrightnessHigh);
             yInterceptHueBulb = findYInstercept(slopeHueBulb, x1EncoderLow, y1BrightnessLow);
             mappedEncoderToBrightness = findLinearConversion(slopeHueBulb, yInterceptHueBulb, encoderInput);
@@ -230,6 +241,7 @@ void loop() {
                 } 
             }
 
+            // choose the playlist depending on the encoder switch toggle. Prevents looping to different playlists after completing the current one.
             if(!encoderSwitchToggle) {
                 if(currentTrack > 10) {
                     mp3Player.loopFolder(1);
@@ -242,6 +254,8 @@ void loop() {
                     Serial.printf("playing loud playlist.");
                 }
             }
+
+            
 
             if(encoderInput != previousEncoderInput) {
                 // sets color based on temperature. Pure blue at 32 degrees farenheight, pure red at 100 degrees farenheight.
@@ -282,7 +296,14 @@ void loop() {
             // prints data to the OLED display at 1 second intervals
             if((currentTime - previousTime2) > 1000) {
 
+                // change the color based on temperature.
+                if(tempFar != previousTempFar) {
+                    pixel.clear();
+                    pixel.show();
+                    pixelFill(0, pixelCount, (color * 2) - 64, 0, 200 - (color * 2));
+                }
 
+                // display the temperature on the OLED.
                 myOLED.clearDisplay();
                 myOLED.setCursor(0, 0);
                 myOLED.printf("Temp: %0.2f F. \n---\nCurrent Track:\n \n", tempFar);
@@ -293,12 +314,12 @@ void loop() {
                 Serial.printf("\nTemp in Fahrenheit is: %0.2f.\n", tempFar);
                 previousTime2 = currentTime;
 
-                // prints the Ultrasonic sensor distance
+                // prints the Ultrasonic sensor distance to the serial monitor.
                 Serial.printf("\nDistance: %0.4f\n", distance);
+
+                // ensures that the music keeps looping even if it was paused. Without this, the music stops when the current song finishes.
+                mp3Player.enableLoopAll();
             }
-
-
-            
 
             // match previous inputs to current inputs.
             previousTempFar = tempFar;
@@ -308,6 +329,7 @@ void loop() {
             previousTime = currentTime;
             previousTimeSensor = previousTime;
 
+            // Turn on the lights and music if the ultrasonic sensor detects someone in range.
             if(toggleProximityStart == false && toggleStartStop == true) {
                 toggleProximityStart = !toggleProximityStart;
                 pixelFill(0, pixelCount, (color * 2) - 64, 0, 200 - (color * 2));
