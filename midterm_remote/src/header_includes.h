@@ -15,8 +15,6 @@ const int MP3BUSYPIN = D15;
 const int MP3TXPIN = D4;
 const int MP3RXPIN = D5;
 const int BUTTONPINSTARTSTOP = D10;
-const int BUTTONPINPREVIOUSSONG = A2;
-const int BUTTONPINNEXTSONG = A1;
 bool toggleStartStop = 1;
 bool togglePlaylist;
 unsigned int currentFolder;
@@ -24,14 +22,16 @@ unsigned int currentTrack;
 DFRobotDFPlayerMini mp3Player;
 
 Button buttonStartStop(BUTTONPINSTARTSTOP);
-Button mp3NextButton(BUTTONPINNEXTSONG);
-Button mp3BackButton(BUTTONPINPREVIOUSSONG);
 
 // Hue Bulb and Wemo constants, variable, objects
 const int BULB1 = 1;
 const int BULBALL[] = {1, 2, 3, 4, 5};
-const int MYWEMO = 2;
-const int MYWEMO2 = 3;
+// lava lamp
+const int MYWEMO = 0;
+// desk outlet
+const int MYWEMO2 = 1;
+// fan
+const int MYWEMO3 = 2;
 bool wemoToggleState = true;
 int color, previousColor; // match these to the mapped temperature.
 int playlistColor;

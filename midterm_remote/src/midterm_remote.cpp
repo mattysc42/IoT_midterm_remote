@@ -109,6 +109,7 @@ void loop() {
             cycleHueBulbs(blue, 0);
             wemoWrite(MYWEMO, LOW);
             wemoWrite(MYWEMO2, LOW);
+            wemoWrite(MYWEMO3, LOW);
             previousTimeSensor = currentTime;
         }
     }
@@ -155,8 +156,9 @@ void loop() {
             // turn on the wemos if temperature goes over 75 degrees farhenheight.
             if(tempFar > 75) {
                 if(wemoToggleState == false) {
-                    wemoWrite(MYWEMO, HIGH);
-                    wemoWrite(MYWEMO2, HIGH);
+                    wemoWrite(MYWEMO, LOW);
+                    wemoWrite(MYWEMO2, LOW);
+                    wemoWrite(MYWEMO3, HIGH);
                     wemoToggleState = !wemoToggleState;
                 }
             }
@@ -164,8 +166,9 @@ void loop() {
                 // turn the wemos off if temperature goes below 75 degrees farhenheight.
                 if(wemoToggleState == true) {
                     if(tempFar < 75) {
-                        wemoWrite(MYWEMO, LOW);
-                        wemoWrite(MYWEMO2, LOW);
+                        wemoWrite(MYWEMO, HIGH);
+                        wemoWrite(MYWEMO2, HIGH);
+                        wemoWrite(MYWEMO3, LOW);
                         wemoToggleState = !wemoToggleState;
                     }
                 }
@@ -255,8 +258,6 @@ void loop() {
                 }
             }
 
-            
-
             if(encoderInput != previousEncoderInput) {
                 // sets color based on temperature. Pure blue at 32 degrees farenheight, pure red at 100 degrees farenheight.
                 pixelFill(0, pixelCount, (color * 2) - 64, 0, 200 - (color * 2));
@@ -290,8 +291,6 @@ void loop() {
                     mp3Player.volume(mappedEncoderToVolume);
                 }
             }
-            
-            
 
             // prints data to the OLED display at 1 second intervals
             if((currentTime - previousTime2) > 1000) {
@@ -365,7 +364,7 @@ void checkEncoderPositionZero() {
 }
 
 void cycleHueBulbs(int playlistColor, float brightness) {
-    for(int i = 0; i < 5; i++) {
+    for(int i = 1; i <= 6; i++) {
         setHue(i, true, playlistColor, 255, 255);
     }
 }
