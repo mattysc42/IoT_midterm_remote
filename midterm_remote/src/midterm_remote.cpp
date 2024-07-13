@@ -4,6 +4,7 @@
  * Date: 7/9/24
  */
 
+// Most of the header is in a seperate file to increase readability.
 #include "header_includes.h"
 
 SYSTEM_MODE(SEMI_AUTOMATIC);
@@ -13,6 +14,8 @@ SYSTEM_MODE(SEMI_AUTOMATIC);
 void setup() {
     Serial.begin(9600);
     waitFor(Serial.isConnected, 2500);
+
+    // currently disabled because I'm not in range of this network.
     /* WiFi.on();
     WiFi.clearCredentials();
     WiFi.setCredentials("IoTNetwork");
@@ -53,12 +56,12 @@ void setup() {
 
     // MP3 Player stuff.
     pinMode(MP3BUSYPIN, INPUT);
-
-    Serial.printf("DFRobot DFPlayer Mini Demo\n");
-    Serial.printf("Initializing DFPlayer ... (May take 3~5 seconds)\n");
+    Serial.printf("Initializing MP3 Player. Please wait...\n");
     Serial2.begin(9600);
     mp3Player.begin(Serial2);
     delay(1000);
+
+    // check that the MP3 is connected.
     if (!mp3Player.begin(Serial2)) {  //Use softwareSerial to communicate with mp3.
         Serial.printf("Unable to begin:\n");
         Serial.printf("1.Please recheck the connection!\n");
@@ -66,13 +69,13 @@ void setup() {
         while(true);
     }
 
-    // startup stuff.
+    // default startup output settings.
     mp3Player.loopFolder(1);
     mp3Player.enableLoopAll();
     mp3Player.pause();
-    mp3Player.volume(20);
     encoder.write(62);
     encoderInput = 62;
+    mp3Player.volume(20);
     cycleHueBulbs(HueBlue, 255);
     Serial.printf("playing quiet playlist.");
 }
@@ -111,16 +114,21 @@ void loop() {
             previousTimeSensor = currentTime;
         }
     }
-    // Check sensor distance. Auto start if sensor reads less than 70cm.
+
+    // Auto start if sensor reads less than 70cm.
     else {
-        myOLED.clearDisplay();
+
+        // Reset the 10 second pause timer if I move back into range.
+        previousTimeSensor = previousTime;
+        
+        // read the encoder input
         encoderInput = encoder.read();
 
         //start a cycle timer to prevent excessive inputs
         if ((currentTime - previousTime) > 50) {
             currentTrack = mp3Player.readCurrentFileNumber(Serial2);
             
-            // change the encoder color depending on the playlist
+            // change the encoder color depending on the playlist. This encoder turns on if the output is LOW.
             if(encoderSwitchToggle == true) {
                 digitalWrite(ENCODERSWITCHRED, HIGH);
                 digitalWrite(ENCODERSWITCHGREEN, LOW);
@@ -160,8 +168,9 @@ void loop() {
                     wemoToggleState = !wemoToggleState;
                 }
             }
+
+            // turn the wemos off if temperature goes below 75 degrees farhenheight.
             else {
-                // turn the wemos off if temperature goes below 75 degrees farhenheight.
                 if(wemoToggleState == true) {
                     if(tempFar < 75) {
                         wemoWrite(MYWEMO, HIGH);
@@ -192,13 +201,13 @@ void loop() {
             mappedEncoderToPixel = findLinearConversion(slopePixel, yInterceptPixel, encoderInput);
             pixelCount = mappedEncoderToPixel;
 
-            // maps huebulb brightness to encoder. Due to input lag issues with the huebulbs, this only works for the neopixel brightness currently.
+            // maps huebulb and neopixel brightness to encoder. Due to input lag issues with the huebulbs, this only works for the neopixel brightness currently.
             slopeHueBulb = findSlope(x1EncoderLow, y1BrightnessLow, x2EncoderHigh, y2BrightnessHigh);
             yInterceptHueBulb = findYInstercept(slopeHueBulb, x1EncoderLow, y1BrightnessLow);
             mappedEncoderToBrightness = findLinearConversion(slopeHueBulb, yInterceptHueBulb, encoderInput);
             pixel.setBrightness(mappedEncoderToBrightness * 0.5);
             
-            // if the pause button is clicked, turn all the huebulb red and pause the music. pressing again plays the music again and turns the huebulbs to the playlist color
+            // if the pause button is clicked, turn all the huebulbs red, pause the music, and turn off the wemos. Pressing again plays the music again and turns the huebulbs to the playlist color.
             if(buttonStartStop.isClicked()) {
                 if(toggleStartStop == true) {
                     mp3Player.pause();
@@ -259,7 +268,9 @@ void loop() {
                 }
             }
 
+            // if the encoder input changes, update the neopixel output.
             if(encoderInput != previousEncoderInput) {
+
                 // sets color based on temperature. Pure blue at 32 degrees farenheight, pure red at 100 degrees farenheight.
                 pixelFill(0, pixelCount, (color * 2) - 64, 0, 200 - (color * 2));
 
@@ -269,23 +280,18 @@ void loop() {
                     pixelFill(0, pixelCount, (color * 2) - 64, 0, 200 - (color * 2));
                 }
 
-                // turns pixels off if the current pixelcount is less than the previous pixelcount
+                // turns pixels off if the current pixelcount is less than the previous pixelcount then turns on the correct pixelcount
                 if(pixelCount < previousInputPixel) {
                     pixel.clear();
                     pixel.show();
                     pixelFill(0, pixelCount, (color * 2) - 64, 0, 200 - (color * 2));
                 }
-
-                if(encoderSwitchToggle == 0) {
-                    mp3Player.volume(mappedEncoderToVolume);
-                }
-                else {
-                    mp3Player.volume(mappedEncoderToVolume);
-                } 
                 
+                // sets volume to match the encoder and pixelcount
+                mp3Player.volume(mappedEncoderToVolume);
             }
 
-            // check encoder input and work from there.
+            // check encoder input for 0.
             if(encoderInput == 0) {
                 checkEncoderPositionZero();
                 if(encoderInput != previousEncoderInput) {
@@ -327,7 +333,6 @@ void loop() {
             previousEncoderInput = encoderInput;
             previousEncoderToBrightness = mappedEncoderToBrightness;
             previousTime = currentTime;
-            previousTimeSensor = previousTime;
 
             // Turn on the lights and music if the ultrasonic sensor detects someone in range.
             if(toggleProximityStart == false && toggleStartStop == true) {
